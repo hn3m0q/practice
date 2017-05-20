@@ -1,3 +1,4 @@
+import sys
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -73,6 +74,19 @@ class gradient_descent(object):
             counter += 1
         return theta
 
+class normal_equation(object):
+    def test(self, X):
+        if np.linalg.det(np.dot(X.T, X)) == 0.0:
+            return False
+        else:
+            return True
+    
+    def run(self, X, y):
+        if self.test(X):
+            return np.dot(np.dot(np.linalg.inv(np.dot(X.T, X)), X.T), y)
+        else:
+            sys.exit(('\033[91m' + 'singular matrix X' + '\033[00m'))
+
 #test
 if __name__ == '__main__':
     import random
@@ -86,7 +100,7 @@ if __name__ == '__main__':
         
         #generate target theta, the first column is for bias
         theta = 10 * np.random.random((n + 1, 1))
-        print('set theta:', theta.T)
+        print('set theta:\n', theta.T, '\n')
         
         X = np.zeros((m, n))
         y = np.zeros((m, 1))
@@ -100,11 +114,25 @@ if __name__ == '__main__':
     
     pp = preprocessing()
     fs = feature_scaling()
-    gd = gradient_descent(lr = 0.000001, max_cost = 0.5)
+    gd = gradient_descent(lr = 0.000001, max_iter = 1000000000)
+    nq = normal_equation()
     
-    X, y = gen_data(100, 2, 5) 
+    # generate X and y
+    X, y = gen_data(1000, 1, 5) 
+
+    # init X and theta, initial theta for gradient descent
     X = pp.X_init(X)
     theta = pp.theta_init(X)
+
+    
+    
+    # gradient descent
+    print('predicted theta with batch gradient descent:')
     theta = gd.batch(X, y, theta)
-    print('predicted theta', theta.T)
+    print(theta.T, '\n')
+    
+    # normal equation
+    print('theta with normal equation:')
+    theta = nq.run(X, y)
+    print(theta.T, '\n')
     
