@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 run feature_scaling => preprocessing => learning model
 
 TODO: what if X[:, col].ptp() = 0?
-TODO: underfitting and overfitting?
+TODO: bad prediciton with features > 1
 '''
 
 class preprocessing(object):
@@ -32,15 +32,15 @@ class feature_scaling(object):
         return X
 
 class gradient_descent(object):
-    def __init__(self, lr, max_iter, max_errors = 0):
+    def __init__(self, lr, max_iter = float('inf'), max_cost = 0):
         '''
         lr: learning rate for gradient descent
         max_iter: maximum number of epoches
-        max_errors: maximum number of errors that can be tolerated
+        max_cost: maximum cost that can be tolerated
         '''
         self.lr = lr
         self.max_iter = max_iter
-        self.max_errors = max_errors
+        self.max_cost = max_cost
     
     def hypothesis(self, X, theta):
         return np.dot(X, theta)
@@ -48,48 +48,63 @@ class gradient_descent(object):
     def batch(self, X, y, theta):
         '''
         here gives two ways to teminate the loop
-        choose max_iter or max_errors or both
+        choose max_iter or max_cost or both
         '''
-        c = 0 # counter of epoches
+        counter = 0 # counter of epoches
         m = X.shape[0] # number of datasets
         temp_cost = float('inf') # assign for the first loop
         while True:
             cost = (1 / (2 * m)) * np.sum((self.hypothesis(X, theta) - y) ** 2)
-            if cost <= self.max_errors or cost > temp_cost: break
-            if c == self.max_iter or cost > temp_cost: break
             
+            # break info for choosing better parameter for gradient descent
+            if cost <= self.max_cost:
+                print('\033[92m' + 'cost threshold reached break' + '\033[00m')
+                break
+            if counter == self.max_iter:
+                print('\033[92m' + 'max iterations reached break' + '\033[00m')
+                break
+            if cost > temp_cost: 
+                print('\033[91m' + 'increasing cost break' + '\033[00m')
+                break
+            
+            #update
             theta -= self.lr * np.dot(X.T, self.hypothesis(X, theta) - y) / m
             temp_cost = cost # convergence watcher
-            c += 1
-        return theta, cost
+            counter += 1
+        return theta
 
 #test
 if __name__ == '__main__':
     import random
     
-    # generate target theta, the first column is for bias
-    target_theta = 10 * np.random.rand(5, 1)
-    # set varience
-    varience = 1
-    # generate data
-    X = np.zeros((20, 4))
-    y = np.zeros((20, 1))
-    for row in range(20):
-        for col in range(4):
-            X[row, col] = row + varience * random.random()
-    X = np.hstack((np.ones((X.shape[0], 1)), X))
-    y = np.dot(X, target_theta)
-    
-    print('target_weights:\n', target_theta)
+    def gen_data(m, n, varience):
+        '''
+        m = number of datasets
+        n = number of features
+        varience / 2 = max range between varied y and raw y
+        '''
+        
+        #generate target theta, the first column is for bias
+        theta = 10 * np.random.random((n + 1, 1))
+        print('set theta:', theta.T)
+        
+        X = np.zeros((m, n))
+        y = np.zeros((m, 1))
+        for row in range(m):
+            for col in range(n):
+                X[row, col] = row + col
+        raw_y = np.dot(np.hstack((np.ones((X.shape[0], 1)), X)), theta)
+        # y for training
+        y = raw_y + varience * (np.random.random((m, 1)) - 0.5)
+        return X, y
     
     pp = preprocessing()
     fs = feature_scaling()
-    gd = gradient_descent(lr = 0.001, max_iter = 1000)
+    gd = gradient_descent(lr = 0.000001, max_cost = 0.5)
     
-    X = pp.X_init(fs.standardization(X))
+    X, y = gen_data(100, 2, 5) 
+    X = pp.X_init(X)
     theta = pp.theta_init(X)
-    prediction = gd.batch(X, y, theta)[0]
-    final_cost = gd.batch(X, y, theta)[1]
+    theta = gd.batch(X, y, theta)
+    print('predicted theta', theta.T)
     
-    print('prediction theta:\n', prediction)
-    print('final cost:\n', final_cost)
