@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 run feature_scaling => preprocessing => learning model
 
 TODO: what if X[:, col].ptp() = 0?
-TODO: bad prediciton with features > 1
 '''
 
 class preprocessing(object):
@@ -87,7 +86,6 @@ class normal_equation(object):
         else:
             sys.exit(('\033[91m' + 'singular matrix X' + '\033[00m'))
 
-#test
 if __name__ == '__main__':
     import random
     
@@ -99,40 +97,38 @@ if __name__ == '__main__':
         '''
         
         #generate target theta, the first column is for bias
-        theta = 10 * np.random.random((n + 1, 1))
+        theta = 10 * np.random.rand(n + 1, 1)
         print('set theta:\n', theta.T, '\n')
         
-        X = np.zeros((m, n))
-        y = np.zeros((m, 1))
-        for row in range(m):
-            for col in range(n):
-                X[row, col] = row + col
+        # set the range of x to be 5
+        X = 5 * np.random.rand(m, n)
         raw_y = np.dot(np.hstack((np.ones((X.shape[0], 1)), X)), theta)
         # y for training
-        y = raw_y + varience * (np.random.random((m, 1)) - 0.5)
+        y = raw_y + varience * np.random.randn(m, 1)
         return X, y
+    
+    def test(X, y, theta):
+        # gradient descent
+        print('predicted theta with batch gradient descent:')
+        theta = gd.batch(X, y, theta)
+        print(theta.T, '\n')
+        
+        # normal equation
+        print('theta with normal equation:')
+        theta = nq.run(X, y)
+        print(theta.T, '\n')
     
     pp = preprocessing()
     fs = feature_scaling()
-    gd = gradient_descent(lr = 0.000001, max_iter = 1000000000)
+    gd = gradient_descent(lr = 0.01, max_iter = 10000)
     nq = normal_equation()
     
     # generate X and y
-    X, y = gen_data(1000, 1, 5) 
-
+    X, y = gen_data(100, 5, 1)
+    
     # init X and theta, initial theta for gradient descent
     X = pp.X_init(X)
     theta = pp.theta_init(X)
-
     
-    
-    # gradient descent
-    print('predicted theta with batch gradient descent:')
-    theta = gd.batch(X, y, theta)
-    print(theta.T, '\n')
-    
-    # normal equation
-    print('theta with normal equation:')
-    theta = nq.run(X, y)
-    print(theta.T, '\n')
-    
+    # run test
+    test(X, y, theta)
