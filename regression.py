@@ -7,13 +7,14 @@ import matplotlib.pyplot as plt
 run feature_scaling => preprocessing => learning model
 
 TODO: what if X[:, col].ptp() = 0?
+TODO: SGD parameters
 '''
 
 class preprocessing(object):
     def X_init(self, X):
         return np.hstack((np.ones((X.shape[0], 1)), X))
     
-    def theta_init(self, theta):
+    def theta_init(self, X):
         # run X_init before theta_init
         return np.zeros((X.shape[1], 1))
 
@@ -42,8 +43,13 @@ class gradient_descent(object):
         self.max_iter = max_iter
         self.max_cost = max_cost
     
-    def hypothesis(self, X, theta):
+    def hyp(self, X, theta):
+        ''' hypothesis function '''
         return np.dot(X, theta)
+
+    def mse_cost(self, X, y, theta):
+        m = X.shape[0] # number of datasets
+        return (1 / (2 * m)) * np.sum((self.hyp(X, theta) - y) ** 2)
     
     def batch(self, X, y, theta):
         '''
@@ -53,23 +59,55 @@ class gradient_descent(object):
         counter = 0 # counter of epoches
         m = X.shape[0] # number of datasets
         temp_cost = float('inf') # assign for the first loop
+
         while True:
-            cost = (1 / (2 * m)) * np.sum((self.hypothesis(X, theta) - y) ** 2)
+            cost = self.mse_cost(X, y, theta)
             
             # break info for choosing better parameter for gradient descent
             if cost <= self.max_cost:
                 print('\033[92m' + 'cost threshold reached break' + '\033[00m')
+                print('iteration:', counter)
                 break
             if counter == self.max_iter:
                 print('\033[92m' + 'max iterations reached break' + '\033[00m')
+                print('iteration:', counter)
                 break
-            if cost > temp_cost: 
+            if cost > temp_cost:
                 print('\033[91m' + 'increasing cost break' + '\033[00m')
+                print('iteration:', counter)
                 break
             
-            #update
-            theta -= self.lr * np.dot(X.T, self.hypothesis(X, theta) - y) / m
+            theta -= self.lr * np.dot(X.T, self.hyp(X, theta) - y) / m
             temp_cost = cost # convergence watcher
+            counter += 1
+        return theta
+    
+    def stochastic(self, X, y, theta, t0 = 1, t1 = 200):
+        counter = 0 # counter of epoches
+        m = X.shape[0] # number of datasets
+        
+        learning_rate = lambda t : t0 / (t + t1)
+        
+        while True:
+            cost = self.mse_cost(X, y, theta)
+
+            # break info for choosing better parameter for gradient descent
+            if cost <= self.max_cost:
+                print('\033[92m' + 'cost threshold reached break' + '\033[00m')
+                print('iteration:', counter)
+                break
+            if counter == self.max_iter:
+                print('\033[92m' + 'max iterations reached break' + '\033[00m')
+                print('iteration:', counter)
+                break
+
+            for row in range(m):
+                index = np.random.randint(m)
+                xi = X[index:index + 1]
+                yi = y[index]
+                lr = learning_rate(counter * m + row)
+                theta -= lr * 2 * xi.T * (self.hyp(xi, theta) - yi)
+
             counter += 1
         return theta
 
@@ -87,9 +125,8 @@ class normal_equation(object):
             sys.exit(('\033[91m' + 'singular matrix X' + '\033[00m'))
 
 if __name__ == '__main__':
-    import random
-    
     def gen_data(m, n, varience):
+        import random
         '''
         m = number of datasets
         n = number of features
@@ -98,37 +135,67 @@ if __name__ == '__main__':
         
         #generate target theta, the first column is for bias
         theta = 10 * np.random.rand(n + 1, 1)
-        print('set theta:\n', theta.T, '\n')
+        print('\033[95m' + 'set theta:' + '\033[00m')
+        print(theta.T, '\n')
         
         # set the range of x to be 5
         X = 5 * np.random.rand(m, n)
         raw_y = np.dot(np.hstack((np.ones((X.shape[0], 1)), X)), theta)
-        # y for training
+        # adding varience for training
         y = raw_y + varience * np.random.randn(m, 1)
         return X, y
     
+    def copy():
+        # prevent list address issue
+        global X_test
+        global y_test
+        global theta_test
+    
+        X_test = np.copy(X)
+        y_test = np.copy(y)
+        theta_test = np.copy(theta)       
+    
     def test(X, y, theta):
+        # use codes above to solve regression
+        fs = feature_scaling()
+        gd = gradient_descent(lr = 0.01, max_cost = 0.4)
+        nq = normal_equation()
+        
         # gradient descent
-        print('predicted theta with batch gradient descent:')
-        theta = gd.batch(X, y, theta)
-        print(theta.T, '\n')
+        copy()
+        print('\033[94m' + 'batch gradient descent:' + '\033[00m')
+        theta_BGD = gd.batch(X_test, y_test, theta_test)
+        print(theta_BGD.T, '\n')
+        
+        copy()
+        print('\033[94m' + 'stochastic gradient descent:' + '\033[00m')
+        theta_SGD = gd.stochastic(X_test, y_test, theta_test)
+        print(theta_SGD.T, '\n')
         
         # normal equation
-        print('theta with normal equation:')
-        theta = nq.run(X, y)
-        print(theta.T, '\n')
+        copy()
+        print('\033[94m' + 'normal equation:' + '\033[00m')
+        theta_NQ = nq.run(X_test, y_test)
+        print(theta_NQ.T, '\n')
     
-    pp = preprocessing()
-    fs = feature_scaling()
-    gd = gradient_descent(lr = 0.01, max_iter = 10000)
-    nq = normal_equation()
+    def verify(X, y, theta):
+        # use machine learning libraries to sovle regression
+        
+        from sklearn.linear_model import LinearRegression
+        linreg = LinearRegression()
+        linreg.fit(X, y)
+        linreg.coef_[0][0] = linreg.intercept_
+        print('\033[93m' + 'sklearn output:' + '\033[00m')
+        print(linreg.coef_)
     
     # generate X and y
     X, y = gen_data(100, 5, 1)
     
     # init X and theta, initial theta for gradient descent
+    pp = preprocessing()
     X = pp.X_init(X)
     theta = pp.theta_init(X)
     
     # run test
     test(X, y, theta)
+    verify(X, y, theta)
